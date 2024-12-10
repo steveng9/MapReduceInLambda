@@ -7,13 +7,17 @@ import os
 from Inspector import Inspector
 import json
 from collections import Counter
+import numpy as np
+import random
+import re
 
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:585008066606:MapReduceResult"
 DATA_BUCKET = "project.bucket.text.raw"
 OUTPUT_BUCKET = "tcss562.project.output"
-OUTPUT_FILENAME = "fargate_results/container_result_"
-S3_FILEPATH = f"s3a://{DATA_BUCKET}/*.txt"
+OUTPUT_FILENAME = "fargate_results/kmeans/container_result_"
+DATA_FILEPATH = f"s3a://{DATA_BUCKET}/*.csv"
+CENTROIDS_FILEPATH = f"s3a://{DATA_BUCKET}/initial_15_kmeans_centroids.csv"
 # S3_FILEPATH = f"s3a://{DATA_BUCKET}/100.33439.txt"
 
 
@@ -23,7 +27,7 @@ def publish_to_sns(message):
     response = sns_client.publish(
         TopicArn=SNS_TOPIC_ARN,
         Message=message,
-        Subject="Container MapReduce result (from s3)"
+        Subject="Container KMeans MapReduce result (from s3)"
     )
     return response
 
@@ -36,7 +40,8 @@ def send_results_to_S3(inspection):
     )
     s3_client.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
 
-
+def euclidean(point1, point2):
+    return np.sqrt(np.sum((np.array(point1) - np.array(point2))**2))
 
 def process_data_from_s3_via_pyspark():
 
@@ -62,28 +67,42 @@ def process_data_from_s3_via_pyspark():
     spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     t1 = time.process_time()
-    rdd = spark.sparkContext.textFile(S3_FILEPATH)
+    data = spark.sparkContext.textFile(DATA_FILEPATH)
+    centroids = spark.sparkContext.textFile(CENTROIDS_FILEPATH)
 
     t2 = time.process_time()
-    words = rdd.flatMap(lambda line: line.split(" "))
-    key_values = words.map(lambda word: (word, 1))
-    counts = key_values.reduceByKey(lambda a, b: a + b)
+    centroids = centroids.map(lambda line: np.array(list(map(float, re.split(r',', line.strip()))))).collect()
+    data = data.map(lambda line: np.array(list(map(float, re.split(r',', line.strip())))))
 
     t3 = time.process_time()
-    sorted_counts = counts.sortBy(lambda x: -x[1])
-    most_common = sorted_counts.take(10)
+    max_iter = 50
+    metric = euclidean
+    iterations_costs = []
+
+    for _ in range(max_iter):
+        cluster = data.map(lambda point: (np.argmin([metric(point, centroid) for centroid in centroids]), point))
+
+        iteration_cost = (cluster.map(lambda x: metric(x[1], centroids[x[0]])).sum())
+        iterations_costs.append(iteration_cost)
+
+        centroids = (cluster
+                     .map(lambda x: (x[0], (x[1], 1)))
+                     .reduceByKey(lambda x, y: (x[0] + y[0], x[1] + y[1]))
+                     .mapValues(lambda x: x[0] / x[1])
+                     .map(lambda x: x[1])
+                     .collect())
 
     t4 = time.process_time()
     timings = [round(t * 1000, 2) for t in [t1-t0, t2-t1, t3-t2, t4-t3]]
 
     inspector.inspectAllDeltas()
     inspection = inspector.finish()
-    inspection["most_common"] = most_common
+    inspection["centroids"] = centroids
     inspection["timings"] = timings
 
     send_results_to_S3(inspection)
 
-    print("Most Common: ", most_common)
+    print("Most Common: ", centroids)
     for timing in timings:
         print(":: %6.2f"%(timing), end="   ")
 

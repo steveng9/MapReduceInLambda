@@ -18,7 +18,8 @@ ARG SECRET_KEY
 COPY hadoop-aws-3.2.0.jar /opt/spark/jars/
 #COPY aws-java-sdk-1.11.900.jar /opt/spark/jars/
 COPY aws-java-sdk-bundle-1.11.375.jar /opt/spark/jars/
-COPY pyspark_example.py pyspark_example.py
+COPY container_pyspark.py container_pyspark.py
+COPY Inspector.py Inspector.py
 COPY Moby-Dick.txt Moby-Dick.txt
 
 ENV ACCESS_KEY=${ACCESS_KEY}
