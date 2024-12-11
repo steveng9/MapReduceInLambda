@@ -10,7 +10,7 @@ def lambda_handler(event, context):
 
     response = ecs_client.run_task(
         cluster="MapReduce_in_container47",
-        taskDefinition="MapReduceInContainerTaskDef2:2",
+        taskDefinition="MapReduceInContainerTaskDef_WORDCOUNT:1",
         launchType='FARGATE',
         networkConfiguration={
             'awsvpcConfiguration': {

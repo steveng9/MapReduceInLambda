@@ -6,18 +6,20 @@ import boto3
 import os
 from Inspector import Inspector
 import json
-from collections import Counter
 import numpy as np
-import random
 import re
+from utils import *
 
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:585008066606:MapReduceResult"
-DATA_BUCKET = "project.bucket.text.raw"
-OUTPUT_BUCKET = "tcss562.project.output"
-OUTPUT_FILENAME = "fargate_results/kmeans/container_result_"
+
+DATA_BUCKET = "project.bucket.final"
+# DATA_BUCKET = "tcss562.project.output/test_data"
 DATA_FILEPATH = f"s3a://{DATA_BUCKET}/*.csv"
 CENTROIDS_FILEPATH = f"s3a://{DATA_BUCKET}/initial_15_kmeans_centroids.csv"
+
+OUTPUT_BUCKET = "tcss562.project.output"
+OUTPUT_FILENAME = "fargate_results/kmeans/container_result_"
 # S3_FILEPATH = f"s3a://{DATA_BUCKET}/100.33439.txt"
 
 
@@ -38,7 +40,7 @@ def send_results_to_S3(inspection):
         aws_secret_access_key=os.getenv("SECRET_KEY"),
         region_name='us-east-1'
     )
-    s3_client.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
+    s3_client.put_object(Body=inspection, Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
 
 def euclidean(point1, point2):
     return np.sqrt(np.sum((np.array(point1) - np.array(point2))**2))
@@ -72,7 +74,7 @@ def process_data_from_s3_via_pyspark():
 
     t2 = time.process_time()
     centroids = centroids.map(lambda line: np.array(list(map(float, re.split(r',', line.strip()))))).collect()
-    data = data.map(lambda line: np.array(list(map(float, re.split(r',', line.strip())))))
+    data = data.map(lambda line: npnan.array(list(map(float, re.split(r',', line.strip())))))
 
     t3 = time.process_time()
     max_iter = 50
@@ -96,19 +98,17 @@ def process_data_from_s3_via_pyspark():
     timings = [round(t * 1000, 2) for t in [t1-t0, t2-t1, t3-t2, t4-t3]]
 
     inspector.inspectAllDeltas()
-    inspection = inspector.finish()
-    inspection["centroids"] = centroids
-    inspection["timings"] = timings
+    # inspector.addAttribute("centroids", centroids)
+    inspector.addAttribute("timings", timings)
+    inspection = get_master_inspection(inspector.finish())
 
     send_results_to_S3(inspection)
 
-    print("Most Common: ", centroids)
+    print("Centroids: ", centroids)
     for timing in timings:
         print(":: %6.2f"%(timing), end="   ")
 
 
 
 process_data_from_s3_via_pyspark()
-# response = publish_to_sns(result)
-# print("Message published to SNS:", response)
 

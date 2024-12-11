@@ -5,10 +5,9 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from collections import Counter
 from Inspector import Inspector
-
+from utils import *
 max_time = 13 * 60
 # max_time = 2
-
 
 
 def lambda_handler(event, context):
@@ -52,7 +51,7 @@ def lambda_handler(event, context):
             'body': f"worker {worker_id} completed successfully!",
             "worker_id": worker_id,
             'word_counts': counter,
-            "inspector": json.dumps(inspector.finish())
+            "inspector": get_worker_inspection(inspector.finish())
         }
 
 

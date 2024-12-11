@@ -6,8 +6,7 @@ import boto3
 import os
 from Inspector import Inspector
 import json
-from collections import Counter
-
+from utils import *
 
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:585008066606:MapReduceResult"
 DATA_BUCKET = "project.bucket.text.raw"
@@ -34,7 +33,7 @@ def send_results_to_S3(inspection):
         aws_secret_access_key=os.getenv("SECRET_KEY"),
         region_name='us-east-1'
     )
-    s3_client.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
+    s3_client.put_object(Body=inspection, Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
 
 
 
@@ -71,15 +70,15 @@ def process_data_from_s3_via_pyspark():
 
     t3 = time.process_time()
     sorted_counts = counts.sortBy(lambda x: -x[1])
-    most_common = sorted_counts.take(10)
+    most_common = sorted_counts.take(4)
 
     t4 = time.process_time()
     timings = [round(t * 1000, 2) for t in [t1-t0, t2-t1, t3-t2, t4-t3]]
 
     inspector.inspectAllDeltas()
-    inspection = inspector.finish()
-    inspection["most_common"] = most_common
-    inspection["timings"] = timings
+    inspector.addAttribute("most_common", most_common)
+    inspector.addAttribute("timings", timings)
+    inspection = get_worker_inspection(inspector.finish())
 
     send_results_to_S3(inspection)
 
