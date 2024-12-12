@@ -52,7 +52,7 @@ def lambda_handler(event, context):
                 lambda_client = boto3.client('lambda',config=cfg)
                 futs.append(
                     executor.submit(lambda_client.invoke,
-                                    FunctionName="worker_mapreduce_function_wordcount",
+                                    FunctionName="worker_mapreduce_function",
                                     InvocationType="RequestResponse",
                                     Payload=json.dumps(payload)
                                     )
@@ -71,7 +71,7 @@ def lambda_handler(event, context):
         # prepare result message
         t4 = time.process_time()
         timings = [round(t * 1000, 2) for t in [t1 - t0, t2 - t1, t3 - t2, t4 - t3]]
-        worker_inspectors = [payload["inspector"] for payload in payloads if "inspector" in payload]
+        worker_inspectors = [payload["inspector_info"] for payload in payloads if "inspector_info" in payload]
         worker_errors = [payload["error"] for payload in payloads if "error" in payload]
         worker_load_sizes = {worker_id: sum([int(filename.split(".")[0]) for filename in files]) for worker_id, files in worker_load.items()}
         # worker_num_files = {worker_id: len(files) for worker_id, files in worker_load.items()}
@@ -94,5 +94,5 @@ def lambda_handler(event, context):
     except Exception as e:
         inspector.addAttribute("Error!", str(e))
         inspection = inspector.finish()
-        s3.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
+        s3.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+f"{num_workers}_err"+str(int(time.time())))
         return inspection

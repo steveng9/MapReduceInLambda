@@ -1,0 +1,21 @@
+FROM apache/spark-py AS build-1
+USER root
+WORKDIR /tmp
+RUN apt-get update
+RUN apt-get install nano
+RUN pip install boto3
+
+ARG ACCESS_KEY
+ARG SECRET_KEY
+
+COPY wordcount_serial.py wordcount_serial.py
+COPY Inspector.py Inspector.py
+COPY utils.py utils.py
+
+
+ENV ACCESS_KEY=${ACCESS_KEY}
+ENV SECRET_KEY=${SECRET_KEY}
+
+FROM build-1 AS build-2
+CMD ["python3", "wordcount_serial.py"]
+#ENTRYPOINT ["/bin/bash"]

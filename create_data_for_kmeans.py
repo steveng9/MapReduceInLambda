@@ -11,7 +11,7 @@ import random
 K = 15
 num_points = 10_000
 dimensions = 20
-num_files = 2000
+num_files = 2
 
 for i, file in enumerate(range(num_files)):
     a = np.random.rand(num_points, dimensions)

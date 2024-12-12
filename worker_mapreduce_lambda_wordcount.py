@@ -51,7 +51,7 @@ def lambda_handler(event, context):
             'body': f"worker {worker_id} completed successfully!",
             "worker_id": worker_id,
             'word_counts': counter,
-            "inspector": get_worker_inspection(inspector.finish())
+            "inspector_info": get_worker_inspection(inspector.finish())
         }
 
 

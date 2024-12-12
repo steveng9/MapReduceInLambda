@@ -23,10 +23,12 @@ master_reporting_info = [
     "availableCPUs",
     "utilizedCPUs",
     "Error!",
+    "error",
+    "num_iters",
 ]
 def get_master_inspection(report):
-    return json.dumps({key: report.get(key, "N/a") for key in master_reporting_info})
+    return json.dumps({key: report.get(key, "Na") for key in master_reporting_info})
 
 worker_reporting_info = ["runtime", "newcontainer", "functionMemory", "cpuIdle", "utilizedCPUs", "recommendedMemory", "totalMemory", "freeMemory"]
 def get_worker_inspection(report):
-    return {key: report[key] for key in worker_reporting_info}
+    return {key: report.get(key, "Na") for key in worker_reporting_info}

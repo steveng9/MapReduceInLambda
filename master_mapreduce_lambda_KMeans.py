@@ -57,6 +57,7 @@ def lambda_handler(event, context):
         centroids = pd.read_csv(centroid_data['Body'], header=None)
 
         num_iters = 0
+        worker_inspectors = []
         for _ in range(max_iters):
             if time.time() - start_time > max_time:
                 break
@@ -93,11 +94,12 @@ def lambda_handler(event, context):
                     full_cluster_sums[c] = full_cluster_sums[c] + worker_cluster_sums.iloc[c].values
             for c in range(k):
                 centroids.iloc[c] = (full_cluster_sums[c] / num_points).tolist()
+            worker_inspectors.append([payload["inspector_info"] for payload in payloads if "inspector_info" in payload])
 
 
         t4 = time.process_time()
         timings = [round(t * 1000, 2) for t in [t1 - t0, t2 - t1, t3 - t2, t4 - t3]]
-        worker_inspectors = [payload["inspector"] for payload in payloads if "inspector" in payload]
+        # TODO fix this. Currently, it's only getting the inspector info from workers of the last iteration.
         worker_errors = [payload["error"] for payload in payloads if "error" in payload]
         # worker_num_files = {worker_id: len(files) for worker_id, files in worker_load.items()}
 
@@ -119,5 +121,5 @@ def lambda_handler(event, context):
     except Exception as e:
         inspector.addAttribute("Error!", str(e))
         inspection = inspector.finish()
-        s3.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+str(int(time.time())))
+        s3.put_object(Body=json.dumps(inspection), Bucket=OUTPUT_BUCKET, Key=OUTPUT_FILENAME+f"{num_workers}_err"+str(int(time.time())))
         return inspection
